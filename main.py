@@ -272,9 +272,9 @@ HTML_TEMPLATE = """
         .sprout-reveal {
             position: absolute; right: 0; top: 0; bottom: 0;
             width: 72px; display: flex; align-items: center; justify-content: center;
-            background: var(--sprout-light); border-radius: 0 8px 8px 0;
-            opacity: 0; transition: opacity 0.2s;
-            pointer-events: auto; cursor: pointer;
+            background: linear-gradient(135deg, var(--sprout-light), var(--sprout-mid)); border-radius: 0 8px 8px 0;
+            opacity: 0; transition: opacity 0.2s, background 0.3s;
+            pointer-events: auto; cursor: pointer; box-shadow: inset -2px 0 4px rgba(74, 124, 89, 0.2);
         }
         .sprout-reveal svg {
             width: 22px; height: 22px; stroke: var(--sprout); stroke-width: 1.8;
@@ -326,6 +326,20 @@ HTML_TEMPLATE = """
             background: var(--sprout-light); color: var(--sprout);
             padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 500;
             cursor: pointer; text-decoration: none;
+        }
+
+        .copy-toast {
+            position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) scale(0.85);
+            background: #4a7c59; color: white; padding: 12px 20px; border-radius: 24px;
+            display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500;
+            opacity: 0; transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); z-index: 1000;
+            box-shadow: 0 8px 24px rgba(74, 124, 89, 0.3);
+        }
+        .copy-toast.show {
+            opacity: 1; transform: translateX(-50%) scale(1);
+        }
+        .copy-toast svg {
+            width: 16px; height: 16px; stroke: currentColor; stroke-width: 2.5; fill: none; stroke-linecap: round; stroke-linejoin: round;
         }
 
         /* ── CHAT BUBBLE ── */
@@ -937,47 +951,68 @@ HTML_TEMPLATE = """
                 const THRESHOLD = 72;
 
                 item.addEventListener('touchstart', (e) => {
-                    // Don't conflict with long press
-                    startX = e.touches[0].clientX;
-                    startY = e.touches[0].clientY;
-                    isDragging = false; currentX = 0;
-                }, { passive: true });
+                    if (e.touches && e.touches.length > 0) {
+                        startX = e.touches[0].clientX;
+                        startY = e.touches[0].clientY;
+                        isDragging = false; 
+                        currentX = 0;
+                    }
+                }, false);
 
                 item.addEventListener('touchmove', (e) => {
+                    if (!e.touches || e.touches.length === 0) return;
                     const dx = e.touches[0].clientX - startX;
                     const dy = e.touches[0].clientY - startY;
-                    if (!isDragging && Math.abs(dy) > Math.abs(dx)) return; // vertical scroll
-                    if (dx > 0) return; // right swipe, ignore
+                    if (!isDragging && Math.abs(dy) > Math.abs(dx)) return;
+                    if (dx > 0) return;
                     if (Math.abs(dx) > 8) {
                         isDragging = true;
-                        clearTimeout(pressTimer); // cancel long press
+                        clearTimeout(pressTimer);
                     }
                     if (!isDragging) return;
                     e.preventDefault();
+                    const progress = Math.min(Math.abs(dx) / THRESHOLD, 1);
                     currentX = Math.max(dx, -THRESHOLD - 10);
-                    item.style.transform = `translateX(${currentX}px)`;
+                    item.style.transform = `translateX(${currentX}px)` + (progress > 0.3 ? ` scale(0.98)` : '');
                     item.style.transition = 'none';
                     const reveal = document.getElementById(`sprout-reveal-${rid}`);
                     if (reveal) {
                         reveal.classList.add('visible');
+                        reveal.style.opacity = Math.min(progress * 1.2, 1);
                         if (Math.abs(currentX) >= THRESHOLD) reveal.classList.add('triggered');
                         else reveal.classList.remove('triggered');
                     }
-                }, { passive: false });
+                }, false);
 
                 item.addEventListener('touchend', () => {
                     if (!isDragging) return;
                     isDragging = false;
-                    item.style.transition = 'transform 0.35s cubic-bezier(0.165, 0.84, 0.44, 1)';
-                    item.style.transform = 'translateX(0)';
+                    item.style.transition = 'transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1)';
+                    item.style.transform = 'translateX(0) scale(1)';
                     const reveal = document.getElementById(`sprout-reveal-${rid}`);
-                    if (reveal) { reveal.classList.remove('visible'); reveal.classList.remove('triggered'); }
+                    if (reveal) { reveal.classList.remove('visible'); reveal.classList.remove('triggered'); reveal.style.opacity = 0; }
                     if (Math.abs(currentX) >= THRESHOLD) {
                         haptic([20, 30]);
                         const r = remindersData.find(x => x.id === rid);
-                        if (r) triggerSprout(r);
+                        if (r && r.sprout_link) copyLinkToast(r.sprout_link);
                     }
-                });
+                }, false);
+            });
+        }
+
+        function copyLinkToast(link) {
+            let url = link.trim();
+            if (!url.match(/^https?:\\/\\//i)) url = 'https://' + url;
+            navigator.clipboard.writeText(url).then(() => {
+                const toast = document.createElement('div');
+                toast.className = 'copy-toast';
+                toast.innerHTML = `<svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg><span>link copied</span>`;
+                document.body.appendChild(toast);
+                setTimeout(() => toast.classList.add('show'), 10);
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    setTimeout(() => toast.remove(), 300);
+                }, 2000);
             });
         }
 
