@@ -298,6 +298,11 @@ HTML_TEMPLATE = """
     </div>
 
     <script>
+        function haptic(pattern = 10) {
+            if (navigator.vibrate) {
+                try { navigator.vibrate(pattern); } catch(e) {}
+            }
+        }
         let currentContextMenuTarget = null;
         let pressTimer;
         let remindersData = [];
@@ -373,6 +378,7 @@ HTML_TEMPLATE = """
                         bubble.classList.remove('show');
                     }
                 } else {
+                    haptic(10);
                     bubble.classList.add('show');
                     setTimeout(() => document.getElementById('reminder-input').focus(), 300);
                 }
@@ -380,6 +386,7 @@ HTML_TEMPLATE = """
         });
 
         function toggleBubble() {
+            haptic(10);
             const bubble = document.getElementById('chat-bubble');
             if(bubble.classList.contains('show')) bubble.classList.remove('show');
             else {
@@ -412,12 +419,13 @@ HTML_TEMPLATE = """
             input.value = '';
             input.style.height = '24px';
             document.getElementById('chat-bubble').classList.remove('show');
-            if (navigator.vibrate) navigator.vibrate(50);
+            haptic(50);
             loadReminders();
         }
 
         async function handleItemClick(e, id, completeStatus) {
             if(e.button === 2) return; 
+            haptic(15);
             await fetch(`/api/reminders/${id}`, {
                 method: 'PUT',
                 headers: {'Content-Type': 'application/json'},
@@ -447,7 +455,7 @@ HTML_TEMPLATE = """
         function handleTouchStart(e, rJsonStr) {
             pressTimer = setTimeout(() => {
                 handleContextMenu(e, rJsonStr);
-                if (navigator.vibrate) navigator.vibrate(50);
+                haptic([30, 40]);
             }, 600);
         }
 
@@ -455,6 +463,7 @@ HTML_TEMPLATE = """
 
         function handleCmAction(action) {
             document.getElementById('context-menu').classList.remove('show');
+            haptic(15);
             if(!currentContextMenuTarget) return;
 
             const r = currentContextMenuTarget;
@@ -517,6 +526,7 @@ HTML_TEMPLATE = """
         }
 
         function setPreset(el, preset) {
+            haptic(10);
             document.querySelectorAll('.preset-card').forEach(c => c.classList.remove('active'));
             el.classList.add('active');
             document.getElementById('modal-schedule-val').value = preset;
@@ -526,6 +536,7 @@ HTML_TEMPLATE = """
         function closeIfOutside(e) { if(e.target.id === 'action-modal') closeModal(); }
 
         async function saveModal() {
+            haptic([20, 30]);
             const id = document.getElementById('modal-target-id').value;
             const action = document.getElementById('modal-action-type').value;
             
