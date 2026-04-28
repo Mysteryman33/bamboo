@@ -4,8 +4,8 @@ from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 
-# Using local_v6 to include color column
-db_url = os.environ.get('DATABASE_URL', 'sqlite:///local_v6.db')
+# Using local_v5 to start fresh with the new notification schema
+db_url = os.environ.get('DATABASE_URL', 'sqlite:///local_v5.db')
 if db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql://", 1)
 
@@ -23,7 +23,6 @@ class Reminder(db.Model):
     notifications_sent = db.Column(db.Integer, default=0)
     notes = db.Column(db.String(2000), default="")
     updated_at = db.Column(db.String(100), default="")
-    color = db.Column(db.String(20), default="")
 
 with app.app_context():
     db.create_all()
@@ -38,8 +37,7 @@ def r_to_dict(r):
         "schedule_start": r.schedule_start,
         "notifications_sent": r.notifications_sent,
         "notes": r.notes, 
-        "updated_at": r.updated_at,
-        "color": r.color
+        "updated_at": r.updated_at
     }
 
 @app.route('/')
@@ -52,8 +50,7 @@ def handle_reminders():
         data = request.json
         new_r = Reminder(
             text=data.get('text', ''),
-            updated_at=data.get('updated_at', ''),
-            color=data.get('color', '')
+            updated_at=data.get('updated_at', '')
         )
         db.session.add(new_r)
         db.session.commit()
@@ -75,7 +72,6 @@ def handle_reminder(rid):
         if 'notifications_sent' in data: r.notifications_sent = data['notifications_sent']
         if 'notes' in data: r.notes = data['notes']
         if 'updated_at' in data: r.updated_at = data['updated_at']
-        if 'color' in data: r.color = data['color']
         db.session.commit()
         return jsonify(r_to_dict(r))
     elif request.method == 'DELETE':
@@ -108,26 +104,17 @@ HTML_TEMPLATE = """
         }
 
         /* --- Header --- */
-        .header-container {
-            display: flex; align-items: center; justify-content: center; position: relative;
-            padding: 60px 20px 20px 20px; animation: fadeIn 0.8s ease-out forwards; max-width: 600px; margin: 0 auto;
-        }
         .header {
+            text-align: center; padding: 60px 20px 20px 20px;
             font-size: 32px; font-weight: 500; letter-spacing: 2px;
-            color: var(--accent); text-transform: lowercase; user-select: none; cursor: pointer;
+            color: var(--accent); text-transform: lowercase;
+            animation: fadeIn 0.8s ease-out forwards;
+            user-select: none;
         }
-        .sort-btn {
-            position: absolute; right: 20px; bottom: 24px;
-            width: 36px; height: 36px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            cursor: pointer; transition: background 0.2s; color: var(--muted);
-        }
-        .sort-btn:hover { background: rgba(0,0,0,0.04); color: var(--dark); }
-        .sort-btn svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 2; fill: none; }
 
         /* --- Reminders List --- */
         .list-container {
-            max-width: 600px; margin: 0 auto; padding: 0 20px;
+            max-width: 600px; margin: 0 auto; padding: 20px;
             padding-bottom: 150px;
         }
 
@@ -137,17 +124,18 @@ HTML_TEMPLATE = """
         }
 
         .reminder-item {
-            padding: 20px 0 20px 16px; border-bottom: 1px solid var(--border);
+            padding: 20px 0; border-bottom: 1px solid var(--border);
             cursor: pointer; transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
             user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
             animation: slideUpFade 0.4s ease-out forwards;
-            opacity: 0; transform-origin: top; border-left: 4px solid transparent;
+            opacity: 0; transform-origin: top;
         }
 
         .reminder-item:hover { transform: translateX(4px); }
-        .reminder-item.completed { opacity: 0.35; border-left-color: transparent !important; }
+        .reminder-item.completed { opacity: 0.35; }
         .reminder-item.completed:hover { transform: translateX(0); }
 
+        /* Using pointer-events none to ensure long/tall text doesn't block the context menu trigger on the container */
         .reminder-content-wrapper { pointer-events: none; }
 
         .reminder-text {
@@ -214,10 +202,6 @@ HTML_TEMPLATE = """
         .cm-item:hover { background: rgba(0,0,0,0.03); }
         .cm-item.danger { color: #ef4444; }
         .cm-item svg { width: 16px; height: 16px; stroke: currentColor; stroke-width: 2; fill: none; }
-        .cm-divider { height: 1px; background: var(--border); margin: 4px 0; }
-
-        /* --- Sort Menu --- */
-        #sort-menu { width: 160px; }
 
         /* --- Modals --- */
         .modal {
@@ -244,17 +228,6 @@ HTML_TEMPLATE = """
         textarea.modal-input { resize: vertical; min-height: 100px; line-height: 1.5; }
         .modal-input:focus { border-color: var(--accent); }
 
-        /* Color Picker */
-        .color-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; justify-items: center; }
-        .color-swatch {
-            width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
-            border: 2px solid transparent; transition: transform 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        .color-swatch:hover { transform: scale(1.1); }
-        .color-swatch.active { border-color: var(--dark); transform: scale(1.1); }
-        .color-clear { background: transparent; border: 2px dashed #d1d5db; box-shadow: none; display: flex; align-items: center; justify-content: center;}
-        .color-clear svg { width: 20px; height: 20px; stroke: #9ca3af; }
-
         .preset-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
         .preset-card {
             border: 1px solid var(--border); border-radius: 12px; padding: 16px 8px; text-align: center;
@@ -280,12 +253,7 @@ HTML_TEMPLATE = """
 </head>
 <body>
 
-    <div class="header-container">
-        <div class="header" onclick="toggleBubble()">bamboo.</div>
-        <div class="sort-btn" onclick="openSortMenu(event)">
-            <svg viewBox="0 0 24 24"><path d="M4 6h16 M7 12h10 M10 18h4" stroke-linecap="round"></path></svg>
-        </div>
-    </div>
+    <div class="header" onclick="toggleBubble()">bamboo.</div>
 
     <div class="list-container" id="reminder-list"></div>
 
@@ -293,7 +261,7 @@ HTML_TEMPLATE = """
         <div class="chat-bubble">
             <textarea id="reminder-input" placeholder="Type a reminder..." rows="1"></textarea>
             <button class="send-btn" onclick="sendReminder()">
-                <svg viewBox="0 0 24 24"><path d="M22 2L11 13 M22 2l-7 20-4-9-9-4 20-7z" stroke-linejoin="round"></path></svg>
+                <svg viewBox="0 0 24 24"><path d="M22 2L11 13 M22 2l-7 20-4-9-9-4 20-7z"></path></svg>
             </button>
         </div>
     </div>
@@ -301,10 +269,7 @@ HTML_TEMPLATE = """
     <!-- Context Menu -->
     <div id="context-menu" class="context-menu">
         <div class="cm-item" onclick="handleCmAction('edit')">
-            <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linejoin="round"></path></svg> Edit
-        </div>
-        <div class="cm-item" onclick="handleCmAction('color')">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path></svg> Color
+            <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg> Edit
         </div>
         <div class="cm-item" onclick="handleCmAction('notes')">
             <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8"></path></svg> Add Notes
@@ -312,22 +277,8 @@ HTML_TEMPLATE = """
         <div class="cm-item" onclick="handleCmAction('schedule')">
             <svg viewBox="0 0 24 24"><path d="M3 4h18v16H3z M16 2v4 M8 2v4 M3 10h18"></path></svg> Schedule
         </div>
-        <div class="cm-divider"></div>
         <div class="cm-item danger" onclick="handleCmAction('delete')">
             <svg viewBox="0 0 24 24"><path d="M3 6h18 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M10 11v6 M14 11v6"></path></svg> Delete
-        </div>
-    </div>
-
-    <!-- Sort Menu -->
-    <div id="sort-menu" class="context-menu">
-        <div class="cm-item" onclick="setSortMode('default')">
-            <svg viewBox="0 0 24 24"><path d="M12 20V4 M5 13l7 7 7-7"></path></svg> Newest First
-        </div>
-        <div class="cm-item" onclick="setSortMode('color')">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path></svg> By Color
-        </div>
-        <div class="cm-item" onclick="setSortMode('schedule')">
-            <svg viewBox="0 0 24 24"><path d="M3 4h18v16H3z M16 2v4 M8 2v4 M3 10h18"></path></svg> By Schedule
         </div>
     </div>
 
@@ -339,7 +290,6 @@ HTML_TEMPLATE = """
             <input type="hidden" id="modal-target-id">
             <input type="hidden" id="modal-action-type">
             <input type="hidden" id="modal-schedule-val">
-            <input type="hidden" id="modal-color-val">
             <div class="modal-actions">
                 <button class="btn btn-cancel" onclick="closeModal()">Cancel</button>
                 <button class="btn btn-save" onclick="saveModal()">Save</button>
@@ -348,21 +298,9 @@ HTML_TEMPLATE = """
     </div>
 
     <script>
-        function haptic(pattern = 10) {
-            if (window.ReactNativeWebView) {
-                let style = 'light';
-                if (Array.isArray(pattern)) style = pattern.length > 2 ? 'heavy' : 'medium';
-                else if (pattern >= 40) style = 'medium';
-                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'HAPTIC', style: style }));
-                return;
-            }
-            if (navigator.vibrate) { try { navigator.vibrate(pattern); } catch(e) {} }
-        }
-
         let currentContextMenuTarget = null;
         let pressTimer;
         let remindersData = [];
-        let currentSortMode = 'default';
 
         const tx = document.getElementById('reminder-input');
         tx.addEventListener('input', function() {
@@ -372,37 +310,22 @@ HTML_TEMPLATE = """
         });
         
         tx.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendReminder(); }
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault(); sendReminder();
+            }
         });
 
-        async function fetchReminders() {
+        async function loadReminders() {
             const res = await fetch('/api/reminders');
             remindersData = await res.json();
-            renderReminders();
-        }
-
-        function renderReminders() {
-            let sorted = [...remindersData];
+            const list = document.getElementById('reminder-list');
             
-            // Sort Active items based on mode
-            sorted.sort((a, b) => {
-                if(a.completed !== b.completed) return a.completed ? 1 : -1;
-                
-                if (currentSortMode === 'color') {
-                    if ((a.color || '') === (b.color || '')) return b.id - a.id;
-                    return (a.color || '').localeCompare(b.color || '');
-                } else if (currentSortMode === 'schedule') {
-                    const aSch = (a.schedule_preset && a.schedule_preset !== 'none') ? 1 : 0;
-                    const bSch = (b.schedule_preset && b.schedule_preset !== 'none') ? 1 : 0;
-                    if (aSch === bSch) return b.id - a.id;
-                    return bSch - aSch;
-                } else {
-                    return b.id - a.id; // Default: Newest first
-                }
+            remindersData.sort((a, b) => {
+                if(a.completed === b.completed) return b.id - a.id; 
+                return a.completed ? 1 : -1;
             });
 
-            const list = document.getElementById('reminder-list');
-            list.innerHTML = sorted.map((r, index) => {
+            list.innerHTML = remindersData.map((r, index) => {
                 const delay = index * 0.05;
                 
                 let metaHtml = `<span><svg class="meta-icon" viewBox="0 0 24 24"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 6v6l4 2"></path></svg> ${r.updated_at || 'Just now'}</span>`;
@@ -414,11 +337,10 @@ HTML_TEMPLATE = """
                 }
 
                 const rJson = JSON.stringify(r).replace(/'/g, "&#39;").replace(/"/g, "&quot;");
-                const borderStyle = (r.color && !r.completed) ? `border-left-color: ${r.color};` : '';
 
                 return `
                     <div class="reminder-item ${r.completed ? 'completed' : ''}" 
-                         style="animation-delay: ${delay}s; ${borderStyle}"
+                         style="animation-delay: ${delay}s;"
                          onclick="handleItemClick(event, ${r.id}, ${!r.completed})"
                          oncontextmenu="handleContextMenu(event, '${rJson}')"
                          ontouchstart="handleTouchStart(event, '${rJson}')"
@@ -434,27 +356,23 @@ HTML_TEMPLATE = """
             }).join('');
         }
 
+        // Keep bubble open. Only close if they explicitly tap random empty space when empty.
         document.body.addEventListener('click', (e) => {
             const isItem = e.target.closest('.reminder-item');
             const isModal = e.target.closest('.modal');
             const isMenu = e.target.closest('.context-menu');
             const isBubble = e.target.closest('.chat-bubble-container');
             const isHeader = e.target.closest('.header');
-            const isSortBtn = e.target.closest('.sort-btn');
             
-            if(!isMenu) {
-                document.getElementById('context-menu').classList.remove('show');
-                document.getElementById('sort-menu').classList.remove('show');
-            }
+            if(!isMenu) document.getElementById('context-menu').classList.remove('show');
 
-            if(!isItem && !isModal && !isMenu && !isBubble && !isHeader && !isSortBtn) {
+            if(!isItem && !isModal && !isMenu && !isBubble && !isHeader) {
                 const bubble = document.getElementById('chat-bubble');
                 if (bubble.classList.contains('show')) {
                     if (document.getElementById('reminder-input').value.trim() === '') {
                         bubble.classList.remove('show');
                     }
                 } else {
-                    haptic(10);
                     bubble.classList.add('show');
                     setTimeout(() => document.getElementById('reminder-input').focus(), 300);
                 }
@@ -462,31 +380,12 @@ HTML_TEMPLATE = """
         });
 
         function toggleBubble() {
-            haptic(10);
             const bubble = document.getElementById('chat-bubble');
             if(bubble.classList.contains('show')) bubble.classList.remove('show');
             else {
                 bubble.classList.add('show');
                 setTimeout(() => document.getElementById('reminder-input').focus(), 300);
             }
-        }
-
-        function openSortMenu(e) {
-            e.stopPropagation();
-            haptic(10);
-            const menu = document.getElementById('sort-menu');
-            menu.classList.add('show');
-            
-            const btnRect = e.currentTarget.getBoundingClientRect();
-            menu.style.top = (btnRect.bottom + 8) + 'px';
-            menu.style.left = (btnRect.right - 160) + 'px';
-        }
-
-        function setSortMode(mode) {
-            haptic(15);
-            currentSortMode = mode;
-            document.getElementById('sort-menu').classList.remove('show');
-            renderReminders();
         }
 
         function getTimestamp() {
@@ -513,18 +412,18 @@ HTML_TEMPLATE = """
             input.value = '';
             input.style.height = '24px';
             document.getElementById('chat-bubble').classList.remove('show');
-            haptic(50);
-            fetchReminders();
+            if (navigator.vibrate) navigator.vibrate(50);
+            loadReminders();
         }
 
         async function handleItemClick(e, id, completeStatus) {
             if(e.button === 2) return; 
-            haptic(15);
             await fetch(`/api/reminders/${id}`, {
-                method: 'PUT', headers: {'Content-Type': 'application/json'},
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({completed: completeStatus, updated_at: getTimestamp()})
             });
-            fetchReminders();
+            loadReminders();
         }
 
         function handleContextMenu(e, rJsonStr) {
@@ -539,7 +438,7 @@ HTML_TEMPLATE = """
             let y = e.clientY || (e.touches && e.touches[0].clientY);
             
             if (x + 180 > window.innerWidth) x = window.innerWidth - 190;
-            if (y + 260 > window.innerHeight) y = window.innerHeight - 270;
+            if (y + 220 > window.innerHeight) y = window.innerHeight - 230;
 
             menu.style.left = `${x}px`;
             menu.style.top = `${y}px`;
@@ -548,7 +447,7 @@ HTML_TEMPLATE = """
         function handleTouchStart(e, rJsonStr) {
             pressTimer = setTimeout(() => {
                 handleContextMenu(e, rJsonStr);
-                haptic([30, 40]);
+                if (navigator.vibrate) navigator.vibrate(50);
             }, 600);
         }
 
@@ -556,20 +455,20 @@ HTML_TEMPLATE = """
 
         function handleCmAction(action) {
             document.getElementById('context-menu').classList.remove('show');
-            haptic(15);
             if(!currentContextMenuTarget) return;
 
             const r = currentContextMenuTarget;
-            if(action === 'delete') { deleteReminder(r.id); return; }
+            if(action === 'delete') {
+                deleteReminder(r.id);
+                return;
+            }
             openModal(action, r);
         }
 
         async function deleteReminder(id) {
             await fetch(`/api/reminders/${id}`, { method: 'DELETE' });
-            fetchReminders();
+            loadReminders();
         }
-
-        const COLORS = ['#fda4af', '#86efac', '#d8b4fe', '#fdba74', '#7dd3fc'];
 
         function openModal(action, r) {
             document.getElementById('modal-target-id').value = r.id;
@@ -591,57 +490,42 @@ HTML_TEMPLATE = """
             } else if (action === 'schedule') {
                 title.textContent = 'Schedule Notifications';
                 document.getElementById('modal-schedule-val').value = r.schedule_preset || 'none';
+                
                 body.innerHTML = `
-                    <div style="font-size:14px; color:var(--muted); margin-bottom:16px;">We'll remind you based on the preset.</div>
+                    <div style="font-size:14px; color:var(--muted); margin-bottom:16px;">We'll remind you based on the preset. Requires notification permissions.</div>
                     <div class="preset-grid">
                         <div class="preset-card ${r.schedule_preset==='day'?'active':''}" onclick="setPreset(this, 'day')">
-                            <div class="preset-name">Day</div><div class="preset-desc">3 days</div>
+                            <div class="preset-name">Day</div>
+                            <div class="preset-desc">3 days</div>
                         </div>
                         <div class="preset-card ${r.schedule_preset==='week'?'active':''}" onclick="setPreset(this, 'week')">
-                            <div class="preset-name">Week</div><div class="preset-desc">2 weeks</div>
+                            <div class="preset-name">Week</div>
+                            <div class="preset-desc">2 weeks</div>
                         </div>
                         <div class="preset-card ${r.schedule_preset==='month'?'active':''}" onclick="setPreset(this, 'month')">
-                            <div class="preset-name">Month</div><div class="preset-desc">1 month</div>
+                            <div class="preset-name">Month</div>
+                            <div class="preset-desc">1 month</div>
                         </div>
                     </div>
                 `;
                 document.getElementById('action-modal').classList.add('show');
-                if (Notification.permission !== "granted") Notification.requestPermission();
-            } else if (action === 'color') {
-                title.textContent = 'Choose Color';
-                document.getElementById('modal-color-val').value = r.color || '';
                 
-                let colorHtml = '<div class="color-grid">';
-                colorHtml += `<div class="color-swatch color-clear ${!r.color ? 'active' : ''}" onclick="setColor(this, '')"><svg fill="none"><path d="M18 6L6 18M6 6l12 12" stroke-linecap="round"/></svg></div>`;
-                COLORS.forEach(c => {
-                    colorHtml += `<div class="color-swatch ${r.color === c ? 'active' : ''}" style="background: ${c}" onclick="setColor(this, '${c}')"></div>`;
-                });
-                colorHtml += '</div>';
-                
-                body.innerHTML = colorHtml;
-                document.getElementById('action-modal').classList.add('show');
+                if (Notification.permission !== "granted") {
+                    Notification.requestPermission();
+                }
             }
         }
 
         function setPreset(el, preset) {
-            haptic(10);
             document.querySelectorAll('.preset-card').forEach(c => c.classList.remove('active'));
             el.classList.add('active');
             document.getElementById('modal-schedule-val').value = preset;
-        }
-
-        function setColor(el, color) {
-            haptic(10);
-            document.querySelectorAll('.color-swatch').forEach(c => c.classList.remove('active'));
-            el.classList.add('active');
-            document.getElementById('modal-color-val').value = color;
         }
 
         function closeModal() { document.getElementById('action-modal').classList.remove('show'); }
         function closeIfOutside(e) { if(e.target.id === 'action-modal') closeModal(); }
 
         async function saveModal() {
-            haptic([20, 30]);
             const id = document.getElementById('modal-target-id').value;
             const action = document.getElementById('modal-action-type').value;
             
@@ -651,9 +535,8 @@ HTML_TEMPLATE = """
             if(action === 'schedule') {
                 payload.schedule_preset = document.getElementById('modal-schedule-val').value;
                 payload.schedule_start = Date.now();
-                payload.notifications_sent = 0;
+                payload.notifications_sent = 0; // reset
             }
-            if(action === 'color') payload.color = document.getElementById('modal-color-val').value;
 
             await fetch(`/api/reminders/${id}`, {
                 method: 'PUT', headers: {'Content-Type': 'application/json'},
@@ -661,34 +544,59 @@ HTML_TEMPLATE = """
             });
 
             closeModal();
-            fetchReminders();
+            loadReminders();
         }
 
+        // --- Notification Engine ---
         setInterval(async () => {
             if(Notification.permission !== 'granted') return;
             const now = Date.now();
+            
             for (let r of remindersData) {
                 if (r.completed || !r.schedule_preset || r.schedule_preset === 'none') continue;
-                let targetCount = 0, msInterval = 0;
-                if (r.schedule_preset === 'day') { targetCount = 3; msInterval = 24 * 60 * 60 * 1000; } 
-                else if (r.schedule_preset === 'week') { targetCount = 14; msInterval = 24 * 60 * 60 * 1000; } 
-                else if (r.schedule_preset === 'month') { targetCount = 15; msInterval = 48 * 60 * 60 * 1000; }
+                
+                let targetCount = 0;
+                let msInterval = 0;
+                
+                // Debug values can be smaller, but these are exact requests:
+                // Day = 1/day for 3 days
+                if (r.schedule_preset === 'day') {
+                    targetCount = 3;
+                    msInterval = 24 * 60 * 60 * 1000;
+                } 
+                // Week = 1/day for 2 weeks
+                else if (r.schedule_preset === 'week') {
+                    targetCount = 14;
+                    msInterval = 24 * 60 * 60 * 1000;
+                } 
+                // Month = 1/2days for 1 month
+                else if (r.schedule_preset === 'month') {
+                    targetCount = 15;
+                    msInterval = 48 * 60 * 60 * 1000; 
+                }
                 
                 if (r.notifications_sent < targetCount) {
+                    // Next trigger is start time + (how many we sent so far * interval)
                     const nextTrigger = r.schedule_start + (r.notifications_sent * msInterval);
+                    
                     if (now >= nextTrigger) {
-                        new Notification("bamboo.", { body: r.text, icon: "https://cdn-icons-png.flaticon.com/512/3221/3221845.png" });
+                        new Notification("bamboo.", {
+                            body: r.text,
+                            icon: "https://cdn-icons-png.flaticon.com/512/3221/3221845.png"
+                        });
+                        
                         r.notifications_sent++;
                         await fetch(`/api/reminders/${r.id}`, {
-                            method: 'PUT', headers: {'Content-Type': 'application/json'},
+                            method: 'PUT',
+                            headers: {'Content-Type': 'application/json'},
                             body: JSON.stringify({notifications_sent: r.notifications_sent})
                         });
                     }
                 }
             }
-        }, 60000);
+        }, 60000); // Check every minute
 
-        fetchReminders();
+        loadReminders();
     </script>
 </body>
 </html>
