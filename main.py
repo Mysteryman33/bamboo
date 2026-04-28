@@ -26,6 +26,7 @@ class Reminder(db.Model):
     color = db.Column(db.String(20), default="")
     created_timestamp = db.Column(db.Float, default=0.0)
     completed_date = db.Column(db.String(20), default="")
+    sprout_link = db.Column(db.String(2000), default="")
 
 with app.app_context():
     db.create_all()
@@ -40,6 +41,11 @@ with app.app_context():
                 pass
             try:
                 conn.execute(text("ALTER TABLE reminder ADD COLUMN completed_date VARCHAR(20) DEFAULT ''"))
+                conn.commit()
+            except Exception:
+                pass
+            try:
+                conn.execute(text("ALTER TABLE reminder ADD COLUMN sprout_link VARCHAR(2000) DEFAULT ''"))
                 conn.commit()
             except Exception:
                 pass
@@ -59,7 +65,8 @@ def r_to_dict(r):
         "updated_at": r.updated_at,
         "color": r.color,
         "created_timestamp": r.created_timestamp or 0.0,
-        "completed_date": r.completed_date or ""
+        "completed_date": r.completed_date or "",
+        "sprout_link": r.sprout_link or ""
     }
 
 @app.route('/')
@@ -75,7 +82,8 @@ def handle_reminders():
             updated_at=data.get('updated_at', ''),
             color=data.get('color', ''),
             created_timestamp=data.get('created_timestamp', 0.0),
-            completed_date=data.get('completed_date', '')
+            completed_date=data.get('completed_date', ''),
+            sprout_link=data.get('sprout_link', '')
         )
         db.session.add(new_r)
         db.session.commit()
@@ -100,6 +108,7 @@ def handle_reminder(rid):
         if 'color' in data: r.color = data['color']
         if 'created_timestamp' in data: r.created_timestamp = data['created_timestamp']
         if 'completed_date' in data: r.completed_date = data['completed_date']
+        if 'sprout_link' in data: r.sprout_link = data['sprout_link']
         db.session.commit()
         return jsonify(r_to_dict(r))
     elif request.method == 'DELETE':
@@ -128,6 +137,11 @@ HTML_TEMPLATE = """
             --border-med: rgba(44, 37, 27, 0.14);
             --green: #5A8A6A;
             --green-light: rgba(90, 138, 106, 0.12);
+            --sprout: #4a7c59;
+            --sprout-light: rgba(74, 124, 89, 0.10);
+            --sprout-mid: rgba(74, 124, 89, 0.18);
+            --red: #ef4444;
+            --red-light: rgba(239, 68, 68, 0.12);
         }
         
         *, *::before, *::after { box-sizing: border-box; }
@@ -147,6 +161,14 @@ HTML_TEMPLATE = """
         @keyframes slideInLeft {
             from { opacity: 0; transform: translateX(-24px); }
             to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes sproutPulse {
+            0%, 100% { transform: scale(1); opacity: 0.7; }
+            50% { transform: scale(1.08); opacity: 1; }
+        }
+        @keyframes leafSway {
+            0%, 100% { transform: rotate(-3deg); }
+            50% { transform: rotate(3deg); }
         }
 
         /* ── HEADER ── */
@@ -242,6 +264,25 @@ HTML_TEMPLATE = """
             text-transform: uppercase; color: var(--muted); padding: 20px 0 10px 0;
         }
 
+        /* ── SWIPE CONTAINER ── */
+        .swipe-wrapper {
+            position: relative; overflow: hidden;
+        }
+
+        .sprout-reveal {
+            position: absolute; right: 0; top: 0; bottom: 0;
+            width: 72px; display: flex; align-items: center; justify-content: center;
+            background: var(--sprout-light); border-radius: 0 8px 8px 0;
+            opacity: 0; transition: opacity 0.2s;
+            pointer-events: auto; cursor: pointer;
+        }
+        .sprout-reveal svg {
+            width: 22px; height: 22px; stroke: var(--sprout); stroke-width: 1.8;
+            fill: none; stroke-linecap: round; stroke-linejoin: round;
+        }
+        .sprout-reveal.visible { opacity: 1; }
+        .sprout-reveal.triggered { background: var(--sprout-mid); }
+
         .reminder-item {
             padding: 18px 0 18px 16px; border-bottom: 1px solid var(--border);
             cursor: pointer; transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
@@ -249,10 +290,13 @@ HTML_TEMPLATE = """
             animation: slideUpFade 0.35s ease-out forwards;
             opacity: 0; border-left: 3px solid transparent;
             border-radius: 0;
+            position: relative; background: var(--bg);
         }
         .reminder-item:hover { transform: translateX(4px); background: rgba(0,0,0,0.015); border-radius: 0 8px 8px 0; }
         .reminder-item.completed { opacity: 0.3; border-left-color: transparent !important; }
         .reminder-item.completed:hover { transform: none; background: transparent; }
+        .reminder-item.overdue { border-left-color: var(--red) !important; }
+
         .reminder-content-wrapper { pointer-events: none; }
 
         .reminder-text {
@@ -272,6 +316,16 @@ HTML_TEMPLATE = """
             display: inline-flex; align-items: center; gap: 4px;
             background: var(--green-light); color: var(--green);
             padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 500;
+        }
+        .days-badge.overdue {
+            background: var(--red-light); color: var(--red);
+        }
+
+        .sprout-badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: var(--sprout-light); color: var(--sprout);
+            padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 500;
+            cursor: pointer; text-decoration: none;
         }
 
         /* ── CHAT BUBBLE ── */
@@ -318,6 +372,7 @@ HTML_TEMPLATE = """
         }
         .cm-item:hover { background: var(--surface); }
         .cm-item.danger { color: #ef4444; }
+        .cm-item.sprout-item { color: var(--sprout); }
         .cm-item svg { width: 15px; height: 15px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
         .cm-divider { height: 1px; background: var(--border); margin: 4px 0; }
 
@@ -350,6 +405,35 @@ HTML_TEMPLATE = """
         textarea.modal-input { resize: vertical; min-height: 90px; line-height: 1.5; }
         .modal-input:focus { border-color: var(--accent); background: var(--bg); }
 
+        /* Sprout modal specific */
+        .sprout-modal-icon {
+            display: flex; align-items: center; justify-content: center;
+            width: 52px; height: 52px; border-radius: 16px;
+            background: var(--sprout-light); margin-bottom: 2px;
+        }
+        .sprout-modal-icon svg {
+            width: 26px; height: 26px; stroke: var(--sprout); stroke-width: 1.8;
+            fill: none; stroke-linecap: round; stroke-linejoin: round;
+        }
+        .sprout-desc {
+            font-size: 13px; color: var(--muted); font-weight: 300; line-height: 1.6;
+        }
+        .sprout-link-input {
+            width: 100%; padding: 16px 18px; border: 1.5px solid var(--border-med);
+            border-radius: 16px; font-family: inherit; font-size: 15px; outline: none;
+            background: var(--surface); color: var(--dark); transition: all 0.25s;
+            letter-spacing: 0.01em;
+        }
+        .sprout-link-input:focus {
+            border-color: var(--sprout); background: var(--bg);
+            box-shadow: 0 0 0 3px var(--sprout-light);
+        }
+        .sprout-link-input::placeholder { color: var(--muted); }
+        .btn-sprout {
+            background: var(--sprout); color: #fff;
+        }
+        .btn-sprout:hover { filter: brightness(0.9); transform: translateY(-1px); }
+
         /* Color Picker */
         .color-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; justify-items: center; }
         .color-swatch {
@@ -381,6 +465,84 @@ HTML_TEMPLATE = """
         .btn-cancel:hover { color: var(--dark); }
         .btn-save { background: var(--accent); color: var(--dark); }
         .btn-save:hover { filter: brightness(0.93); transform: translateY(-1px); }
+
+        /* ── SPROUT EMPTY STATE BUBBLE ── */
+        .sprout-empty-bubble {
+            display: none; position: fixed; bottom: -200px; left: 50%; transform: translateX(-50%);
+            width: calc(100% - 40px); max-width: 380px;
+            transition: bottom 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 100;
+        }
+        .sprout-empty-bubble.show { bottom: 36px; }
+
+        .sprout-bubble-inner {
+            background: linear-gradient(135deg, #1e3328 0%, #2a4a38 60%, #1e3328 100%);
+            border-radius: 28px; padding: 28px 24px;
+            box-shadow: 0 20px 60px rgba(44, 37, 27, 0.28), 0 0 0 1px rgba(255,255,255,0.06) inset;
+            display: flex; flex-direction: column; gap: 20px;
+            position: relative; overflow: hidden;
+        }
+        .sprout-bubble-inner::before {
+            content: ''; position: absolute; top: -30px; right: -20px;
+            width: 120px; height: 120px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(90,138,106,0.15) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .sprout-bubble-top {
+            display: flex; align-items: center; gap: 14px;
+        }
+        .sprout-bubble-emblem {
+            width: 44px; height: 44px; border-radius: 14px;
+            background: rgba(90,138,106,0.2); border: 1px solid rgba(90,138,106,0.3);
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        .sprout-bubble-emblem svg {
+            width: 22px; height: 22px; stroke: #8fc49e; stroke-width: 1.8;
+            fill: none; stroke-linecap: round; stroke-linejoin: round;
+            animation: leafSway 3s ease-in-out infinite;
+        }
+        .sprout-bubble-title {
+            font-size: 17px; font-weight: 500; letter-spacing: 1px;
+            color: #e8f0eb; text-transform: lowercase;
+        }
+        .sprout-bubble-subtitle {
+            font-size: 12px; color: rgba(232,240,235,0.45); font-weight: 300; margin-top: 2px;
+        }
+        .sprout-bubble-close {
+            margin-left: auto; width: 28px; height: 28px; border-radius: 50%;
+            background: rgba(255,255,255,0.07); display: flex; align-items: center; justify-content: center;
+            cursor: pointer; flex-shrink: 0; transition: background 0.2s;
+        }
+        .sprout-bubble-close:hover { background: rgba(255,255,255,0.12); }
+        .sprout-bubble-close svg { width: 14px; height: 14px; stroke: rgba(232,240,235,0.5); stroke-width: 2; fill: none; stroke-linecap: round; }
+
+        .sprout-input-row {
+            display: flex; align-items: center; gap: 10px;
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 18px; padding: 12px 14px 12px 16px;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .sprout-input-row:focus-within {
+            border-color: rgba(143,196,158,0.4); background: rgba(255,255,255,0.09);
+        }
+        .sprout-input-row input {
+            flex: 1; border: none; outline: none; background: transparent;
+            font-size: 15px; font-family: inherit; color: rgba(232,240,235,0.9);
+            font-weight: 300; min-width: 0;
+        }
+        .sprout-input-row input::placeholder { color: rgba(232,240,235,0.28); }
+        .sprout-go-btn {
+            width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+            background: #4a7c59; border: none; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: transform 0.2s, filter 0.2s;
+        }
+        .sprout-go-btn:active { transform: scale(0.88); }
+        .sprout-go-btn svg { width: 16px; height: 16px; stroke: #fff; stroke-width: 2.2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+
+        .sprout-hint {
+            font-size: 11.5px; color: rgba(232,240,235,0.3); font-weight: 300;
+            text-align: center; line-height: 1.6; margin-top: -6px;
+        }
 
         /* ── DASHBOARD ── */
         .dashboard-container {
@@ -436,7 +598,6 @@ HTML_TEMPLATE = """
             padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 500;
             white-space: nowrap; flex-shrink: 0;
         }
-        .no-schedules { font-size: 14px; color: var(--muted); text-align: center; padding: 12px 0; }
 
         ::-webkit-scrollbar { width: 0px; background: transparent; }
     </style>
@@ -495,6 +656,31 @@ HTML_TEMPLATE = """
         </div>
     </div>
 
+    <!-- Sprout Empty State Bubble -->
+    <div class="sprout-empty-bubble" id="sprout-empty-bubble">
+        <div class="sprout-bubble-inner">
+            <div class="sprout-bubble-top">
+                <div class="sprout-bubble-emblem">
+                    <svg viewBox="0 0 24 24"><path d="M12 22V12M12 12C12 7 7 4 3 6M12 12C12 7 17 4 21 6M8 20c1-2 2-5 4-8M16 20c-1-2-2-5-4-8"></path></svg>
+                </div>
+                <div>
+                    <div class="sprout-bubble-title">sprout.</div>
+                    <div class="sprout-bubble-subtitle">attach a doc or link</div>
+                </div>
+                <div class="sprout-bubble-close" onclick="closeSproutEmpty()">
+                    <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"></path></svg>
+                </div>
+            </div>
+            <div class="sprout-input-row">
+                <input type="url" id="sprout-empty-input" placeholder="paste your link here..." autocomplete="off" autocorrect="off" spellcheck="false">
+                <button class="sprout-go-btn" onclick="openSproutEmptyLink()">
+                    <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"></path></svg>
+                </button>
+            </div>
+            <div class="sprout-hint">paste a doc, ppt, canva, or any link — it opens right away</div>
+        </div>
+    </div>
+
     <!-- Context Menu -->
     <div id="context-menu" class="context-menu">
         <div class="cm-item" onclick="handleCmAction('edit')">
@@ -508,6 +694,9 @@ HTML_TEMPLATE = """
         </div>
         <div class="cm-item" onclick="handleCmAction('schedule')">
             <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> Schedule
+        </div>
+        <div class="cm-item sprout-item" onclick="handleCmAction('sprout')">
+            <svg viewBox="0 0 24 24"><path d="M12 22V12M12 12C12 7 7 4 3 6M12 12C12 7 17 4 21 6"></path></svg> Sprout
         </div>
         <div class="cm-divider"></div>
         <div class="cm-item danger" onclick="handleCmAction('delete')">
@@ -540,7 +729,7 @@ HTML_TEMPLATE = """
             <input type="hidden" id="modal-color-val">
             <div class="modal-actions">
                 <button class="btn btn-cancel" onclick="closeModal()">Cancel</button>
-                <button class="btn btn-save" onclick="saveModal()">Save</button>
+                <button class="btn btn-save" id="modal-save-btn" onclick="saveModal()">Save</button>
             </div>
         </div>
     </div>
@@ -591,10 +780,7 @@ HTML_TEMPLATE = """
             return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
         }
 
-        /* Smart relative timestamp: keep existing stored string but
-           rewrite "Today at..." labels based on the stored unix timestamp */
         function smartTimestamp(updatedAt, createdTimestamp) {
-            // If we have a precise unix timestamp, use it
             if (createdTimestamp && createdTimestamp > 0) {
                 const now = Date.now();
                 const diff = now - createdTimestamp;
@@ -612,24 +798,37 @@ HTML_TEMPLATE = """
                 if (days === 3) return `3 days ago`;
                 if (days === 4) return `4 days ago`;
                 if (days === 5) return `5 days ago`;
-                // Older: show actual date
                 const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
                 return `${months[date.getMonth()]} ${date.getDate()}`;
             }
-            // Fallback: use stored string as-is
             return updatedAt || 'Just now';
         }
 
-        /* Days remaining for schedule */
         function getDaysRemaining(r) {
             if (!r.schedule_preset || r.schedule_preset === 'none' || !r.schedule_start) return null;
             let totalDays = 0, msInterval = 86400000;
             if (r.schedule_preset === 'day')   { totalDays = 3;  msInterval = 86400000; }
             if (r.schedule_preset === 'week')  { totalDays = 14; msInterval = 86400000; }
             if (r.schedule_preset === 'month') { totalDays = 30; msInterval = 172800000; }
-
             const remaining = totalDays - (r.notifications_sent || 0);
             return remaining > 0 ? remaining : 0;
+        }
+
+        function getDaysOverdue(r) {
+            if (!r.schedule_preset || r.schedule_preset === 'none' || !r.schedule_start) return null;
+            let totalDays = 0, msInterval = 86400000;
+            if (r.schedule_preset === 'day')   { totalDays = 3;  msInterval = 86400000; }
+            if (r.schedule_preset === 'week')  { totalDays = 14; msInterval = 86400000; }
+            if (r.schedule_preset === 'month') { totalDays = 30; msInterval = 172800000; }
+            const remaining = totalDays - (r.notifications_sent || 0);
+            if (remaining <= 0) {
+                const now = Date.now();
+                const lastTrigger = r.schedule_start + ((r.notifications_sent - 1) * msInterval);
+                const overdueMs = now - lastTrigger;
+                const overdueDays = Math.floor(overdueMs / 86400000);
+                return overdueDays > 0 ? overdueDays : 1;
+            }
+            return null;
         }
 
         /* ── FETCH & RENDER ── */
@@ -658,7 +857,6 @@ HTML_TEMPLATE = """
             });
 
             const list = document.getElementById('reminder-list');
-            
             const active = sorted.filter(r => !r.completed);
             const done   = sorted.filter(r => r.completed);
 
@@ -675,42 +873,167 @@ HTML_TEMPLATE = """
                 }
             }
             list.innerHTML = html;
+            attachSwipeListeners();
         }
 
         function renderItem(r, index) {
             const delay = index * 0.045;
             const timeStr = smartTimestamp(r.updated_at, r.created_timestamp);
             const daysLeft = getDaysRemaining(r);
+            const daysOverdue = getDaysOverdue(r);
+            const isOverdue = daysOverdue !== null;
 
             let metaHtml = `<span><svg class="meta-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>${timeStr}</span>`;
 
-            if (daysLeft !== null) {
+            if (daysLeft !== null && !isOverdue) {
                 metaHtml += `<span class="days-badge"><svg class="meta-icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>${daysLeft}d left</span>`;
+            } else if (isOverdue) {
+                metaHtml += `<span class="days-badge overdue"><svg class="meta-icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>${daysOverdue}d overdue</span>`;
             }
             if (r.notes) {
                 metaHtml += `<span><svg class="meta-icon" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>notes</span>`;
             }
+            if (r.sprout_link) {
+                let sproutUrl = r.sprout_link.trim();
+                if (!sproutUrl.match(/^https?:\\/\\//i)) sproutUrl = 'https://' + sproutUrl;
+                metaHtml += `<a class="sprout-badge" href="${escapeHtml(sproutUrl)}" target="_blank" rel="noopener"><svg class="meta-icon" viewBox="0 0 24 24"><path d="M12 22V12M12 12C12 7 7 4 3 6M12 12C12 7 17 4 21 6M8 20c1-2 2-5 4-8M16 20c-1-2-2-5-4-8"></path></svg>sprout</a>`;
+            }
 
             const rJson = JSON.stringify(r).replace(/'/g, "&#39;").replace(/"/g, "&quot;");
             const borderStyle = (r.color && !r.completed) ? `border-left-color: ${r.color};` : '';
+            const overdueClass = isOverdue ? 'overdue' : '';
 
             return `
-                <div class="reminder-item ${r.completed ? 'completed' : ''}" 
-                     style="animation-delay: ${delay}s; ${borderStyle}"
-                     onclick="handleItemClick(event, ${r.id}, ${!r.completed})"
-                     oncontextmenu="handleContextMenu(event, '${rJson}')"
-                     ontouchstart="handleTouchStart(event, '${rJson}')"
-                     ontouchend="handleTouchEnd(event)"
-                     ontouchcancel="handleTouchEnd(event)">
-                    <div class="reminder-content-wrapper">
-                        <div class="reminder-text">${escapeHtml(r.text)}</div>
-                        <div class="reminder-meta">${metaHtml}</div>
+                <div class="swipe-wrapper" data-id="${r.id}">
+                    <div class="sprout-reveal" id="sprout-reveal-${r.id}" onclick="triggerSproutById(event, ${r.id})">
+                        <svg viewBox="0 0 24 24"><path d="M12 22V12M12 12C12 7 7 4 3 6M12 12C12 7 17 4 21 6M8 20c1-2 2-5 4-8M16 20c-1-2-2-5-4-8"></path></svg>
+                    </div>
+                    <div class="reminder-item ${r.completed ? 'completed' : ''} ${overdueClass}" 
+                         id="item-${r.id}"
+                         style="animation-delay: ${delay}s; ${borderStyle}"
+                         onclick="handleItemClick(event, ${r.id}, ${!r.completed})"
+                         oncontextmenu="handleContextMenu(event, '${rJson}')"
+                         ontouchstart="handleTouchStart(event, '${rJson}')"
+                         ontouchend="handleTouchEnd(event)"
+                         ontouchcancel="handleTouchEnd(event)">
+                        <div class="reminder-content-wrapper">
+                            <div class="reminder-text">${escapeHtml(r.text)}</div>
+                            <div class="reminder-meta">${metaHtml}</div>
+                        </div>
                     </div>
                 </div>`;
         }
 
         function escapeHtml(str) {
             return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+
+        /* ── SWIPE LEFT TO SPROUT ── */
+        function attachSwipeListeners() {
+            document.querySelectorAll('.swipe-wrapper').forEach(wrapper => {
+                const item = wrapper.querySelector('.reminder-item');
+                const rid = parseInt(wrapper.dataset.id);
+                let startX = 0, startY = 0, isDragging = false, currentX = 0;
+                const THRESHOLD = 72;
+
+                item.addEventListener('touchstart', (e) => {
+                    // Don't conflict with long press
+                    startX = e.touches[0].clientX;
+                    startY = e.touches[0].clientY;
+                    isDragging = false; currentX = 0;
+                }, { passive: true });
+
+                item.addEventListener('touchmove', (e) => {
+                    const dx = e.touches[0].clientX - startX;
+                    const dy = e.touches[0].clientY - startY;
+                    if (!isDragging && Math.abs(dy) > Math.abs(dx)) return; // vertical scroll
+                    if (dx > 0) return; // right swipe, ignore
+                    if (Math.abs(dx) > 8) {
+                        isDragging = true;
+                        clearTimeout(pressTimer); // cancel long press
+                    }
+                    if (!isDragging) return;
+                    e.preventDefault();
+                    currentX = Math.max(dx, -THRESHOLD - 10);
+                    item.style.transform = `translateX(${currentX}px)`;
+                    item.style.transition = 'none';
+                    const reveal = document.getElementById(`sprout-reveal-${rid}`);
+                    if (reveal) {
+                        reveal.classList.add('visible');
+                        if (Math.abs(currentX) >= THRESHOLD) reveal.classList.add('triggered');
+                        else reveal.classList.remove('triggered');
+                    }
+                }, { passive: false });
+
+                item.addEventListener('touchend', () => {
+                    if (!isDragging) return;
+                    isDragging = false;
+                    item.style.transition = 'transform 0.35s cubic-bezier(0.165, 0.84, 0.44, 1)';
+                    item.style.transform = 'translateX(0)';
+                    const reveal = document.getElementById(`sprout-reveal-${rid}`);
+                    if (reveal) { reveal.classList.remove('visible'); reveal.classList.remove('triggered'); }
+                    if (Math.abs(currentX) >= THRESHOLD) {
+                        haptic([20, 30]);
+                        const r = remindersData.find(x => x.id === rid);
+                        if (r) triggerSprout(r);
+                    }
+                });
+            });
+        }
+
+        /* ── SPROUT LOGIC ── */
+        function triggerSprout(r) {
+            if (r.sprout_link) {
+                let url = r.sprout_link.trim();
+                if (!url.match(/^https?:\\/\\//i)) url = 'https://' + url;
+                window.open(url, '_blank', 'noopener');
+            } else {
+                currentContextMenuTarget = r;
+                openModal('sprout', r);
+            }
+        }
+
+        function triggerSproutById(e, id) {
+            e.stopPropagation();
+            e.preventDefault();
+            haptic(15);
+            const r = remindersData.find(item => item.id === id);
+            if (!r) return;
+            if (r.sprout_link && r.sprout_link.trim()) {
+                let url = r.sprout_link.trim();
+                if (!url.match(/^https?:\\/\\//i)) url = 'https://' + url;
+                window.open(url, '_blank', 'noopener');
+            } else {
+                currentContextMenuTarget = r;
+                openModal('sprout', r);
+            }
+        }
+
+        function openSproutEmptyLink() {
+            const input = document.getElementById('sprout-empty-input');
+            let url = input.value.trim();
+            if (!url) return;
+            if (!url.match(/^https?:\\/\\//i)) url = 'https://' + url;
+            window.open(url, '_blank', 'noopener');
+            input.value = '';
+            closeSproutEmpty();
+        }
+
+        function closeSproutEmpty() {
+            const el = document.getElementById('sprout-empty-bubble');
+            el.classList.remove('show');
+            setTimeout(() => { el.style.display = 'none'; }, 500);
+        }
+
+        function showSproutEmptyBubble() {
+            const el = document.getElementById('sprout-empty-bubble');
+            el.style.display = 'block';
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    el.classList.add('show');
+                    setTimeout(() => document.getElementById('sprout-empty-input').focus(), 400);
+                });
+            });
         }
 
         /* ── DASHBOARD ── */
@@ -720,8 +1043,6 @@ HTML_TEMPLATE = """
             const completed = remindersData.filter(r => r.completed).length;
             const active = total - completed;
 
-            // Streak: did user complete ≥1 task each day?
-            // Build a map of completed_date → count
             const completedByDate = {};
             remindersData.forEach(r => {
                 if (r.completed && r.completed_date) {
@@ -729,10 +1050,8 @@ HTML_TEMPLATE = """
                 }
             });
 
-            // Calculate streak (consecutive days ending today/yesterday)
             let streak = 0;
             const checkDate = new Date();
-            // If today has completions, start from today; else start from yesterday
             const todayHas = completedByDate[today] > 0;
             if (!todayHas) checkDate.setDate(checkDate.getDate() - 1);
 
@@ -742,7 +1061,6 @@ HTML_TEMPLATE = """
                 else break;
             }
 
-            // Build last 14 days dot display
             const dots = [];
             for (let i = 13; i >= 0; i--) {
                 const d = new Date(); d.setDate(d.getDate() - i);
@@ -755,7 +1073,6 @@ HTML_TEMPLATE = """
 
             const dotsHtml = dots.map(d => `<div class="streak-dot ${d.type}">${d.label}</div>`).join('');
 
-            // Active schedules
             const scheduled = remindersData.filter(r => !r.completed && r.schedule_preset && r.schedule_preset !== 'none');
             let scheduledHtml = '';
             if (scheduled.length === 0) {
@@ -834,6 +1151,7 @@ HTML_TEMPLATE = """
             document.getElementById('header-title').textContent = view === 'dashboard' ? 'dashboard.' : 'bamboo.';
             document.getElementById('sort-btn-wrapper').style.display = view === 'dashboard' ? 'none' : '';
             document.getElementById('chat-bubble').classList.remove('show');
+            closeSproutEmpty();
             if (view === 'dashboard') renderDashboard();
         }
 
@@ -848,6 +1166,7 @@ HTML_TEMPLATE = """
             const isModal   = e.target.closest('.modal');
             const isMenu    = e.target.closest('.context-menu');
             const isBubble  = e.target.closest('.chat-bubble-container');
+            const isSproutBubble = e.target.closest('.sprout-empty-bubble');
             const isHeader  = e.target.closest('.header');
             const isSortBtn = e.target.closest('.sort-btn');
             const isMenuBtn = e.target.closest('.menu-btn');
@@ -858,8 +1177,13 @@ HTML_TEMPLATE = """
                 document.getElementById('sort-menu').classList.remove('show');
             }
 
-            if (!isItem && !isModal && !isMenu && !isBubble && !isHeader && !isSortBtn && !isMenuBtn && !isDrawer && currentView === 'reminders') {
+            if (!isItem && !isModal && !isMenu && !isBubble && !isSproutBubble && !isHeader && !isSortBtn && !isMenuBtn && !isDrawer && currentView === 'reminders') {
                 const bubble = document.getElementById('chat-bubble');
+                const sproutBubble = document.getElementById('sprout-empty-bubble');
+                if (sproutBubble.classList.contains('show')) {
+                    closeSproutEmpty();
+                    return;
+                }
                 if (bubble.classList.contains('show')) {
                     if (!document.getElementById('reminder-input').value.trim()) {
                         bubble.classList.remove('show');
@@ -915,7 +1239,17 @@ HTML_TEMPLATE = """
 
         /* ── ITEM CLICK (toggle complete) ── */
         async function handleItemClick(e, id, completeStatus) {
-            if (e.button === 2) return;
+            if (e.detail > 1) return; // Prevent single click on double-click
+            // Shift+click to open sprout link
+            if (e.shiftKey) {
+                const r = remindersData.find(item => item.id === id);
+                if (r && r.sprout_link) {
+                    let url = r.sprout_link.trim();
+                    if (!url.match(/^https?:\\/\\//i)) url = 'https://' + url;
+                    window.open(url, '_blank', 'noopener');
+                }
+                return;
+            }
             haptic(15);
             const today = getTodayStr();
             await fetch(`/api/reminders/${id}`, {
@@ -939,7 +1273,7 @@ HTML_TEMPLATE = """
             let x = e.clientX || (e.touches && e.touches[0].clientX);
             let y = e.clientY || (e.touches && e.touches[0].clientY);
             if (x + 195 > window.innerWidth) x = window.innerWidth - 200;
-            if (y + 270 > window.innerHeight) y = window.innerHeight - 275;
+            if (y + 300 > window.innerHeight) y = window.innerHeight - 305;
             menu.style.left = `${x}px`; menu.style.top = `${y}px`;
         }
 
@@ -969,6 +1303,11 @@ HTML_TEMPLATE = """
             document.getElementById('modal-action-type').value = action;
             const title = document.getElementById('modal-title');
             const body  = document.getElementById('modal-body');
+            const saveBtn = document.getElementById('modal-save-btn');
+
+            // Reset save button style
+            saveBtn.className = 'btn btn-save';
+            saveBtn.textContent = 'Save';
 
             if (action === 'edit') {
                 title.textContent = 'Edit';
@@ -1009,6 +1348,25 @@ HTML_TEMPLATE = """
                 colorHtml += '</div>';
                 body.innerHTML = colorHtml;
                 document.getElementById('action-modal').classList.add('show');
+            } else if (action === 'sprout') {
+                title.textContent = 'sprout.';
+                saveBtn.className = 'btn btn-sprout';
+                saveBtn.textContent = r.sprout_link ? 'Update' : 'Save';
+                body.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:12px; margin-bottom:4px;">
+                        <div class="sprout-modal-icon">
+                            <svg viewBox="0 0 24 24"><path d="M12 22V12M12 12C12 7 7 4 3 6M12 12C12 7 17 4 21 6M8 20c1-2 2-5 4-8M16 20c-1-2-2-5-4-8"></path></svg>
+                        </div>
+                        <div class="sprout-desc">Attach a doc, slide, Canva or any link.<br>Swipe left to open it instantly.</div>
+                    </div>
+                    <input type="url" id="modal-input-val" class="sprout-link-input"
+                        placeholder="paste link — docs, ppt, canva, anything..."
+                        value="${escapeHtml(r.sprout_link || '')}"
+                        autocomplete="off" autocorrect="off" spellcheck="false">
+                    ${r.sprout_link ? `<div style="font-size:12px; color:var(--sprout); font-weight:300; margin-top:-6px;">✓ link saved — swipe left to open</div>` : ''}
+                `;
+                document.getElementById('action-modal').classList.add('show');
+                setTimeout(() => document.getElementById('modal-input-val').focus(), 100);
             }
         }
 
@@ -1042,12 +1400,20 @@ HTML_TEMPLATE = """
                 payload.notifications_sent = 0;
             }
             if (action === 'color') payload.color = document.getElementById('modal-color-val').value;
+            if (action === 'sprout') {
+                payload.sprout_link = document.getElementById('modal-input-val').value.trim();
+            }
             await fetch(`/api/reminders/${id}`, {
                 method: 'PUT', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(payload)
             });
             closeModal(); fetchReminders();
         }
+
+        /* ── SPROUT EMPTY INPUT ENTER KEY ── */
+        document.getElementById('sprout-empty-input').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); openSproutEmptyLink(); }
+        });
 
         /* ── NOTIFICATION SCHEDULER ── */
         setInterval(async () => {
@@ -1081,4 +1447,4 @@ HTML_TEMPLATE = """
 """
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=4000, debug=True)
