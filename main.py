@@ -25,7 +25,7 @@ db = SQLAlchemy(app)
 
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant")
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_API_KEY = "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"
+GROQ_API_KEY = "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"
 
 # ── MODELS ──────────────────────────────────────────────────────────────────
 
