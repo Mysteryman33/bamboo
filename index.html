@@ -29,6 +29,7 @@
             --life-muted: rgba(239,244,239,0.34);
             --app-height: 100dvh;
             --keyboard-inset: 0px;
+            --viewport-top: 0px;
             --rest-bottom-space: 104px;
             --chat-bottom-space: 104px;
             --life-top-pad: 52px;
@@ -40,7 +41,9 @@
             background: var(--bg); color: var(--dark);
             -webkit-font-smoothing: antialiased;
             min-height: 100vh; overflow-x: hidden;
+            overscroll-behavior: none;
         }
+        body.life-open{overflow:hidden}
 
         @keyframes fadeIn { from{opacity:0}to{opacity:1} }
         @keyframes slideUp { from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)} }
@@ -258,14 +261,16 @@
            MY LIFE OVERLAY — full rework
         ══════════════════════════════════════ */
         .life-overlay{
-            position:fixed;inset:0;
+            position:fixed;left:0;right:0;top:var(--viewport-top);bottom:auto;
             height:var(--app-height);
+            max-height:var(--app-height);
             background:var(--life-bg);
             z-index:600;
             display:flex;flex-direction:column;
             align-items:center;
             overflow:hidden;
-            transition:opacity .3s,height .22s ease;
+            transition:opacity .3s,height .18s ease,top .18s ease;
+            overscroll-behavior:contain;
         }
         .life-overlay.hidden{display:none}
 
@@ -306,7 +311,13 @@
             color:rgba(232,240,235,0.88);
             letter-spacing:-3px;line-height:1;
             margin-top:18px;
-            transition:font-size .42s cubic-bezier(.22,1,.36,1),letter-spacing .42s cubic-bezier(.22,1,.36,1),margin .42s cubic-bezier(.22,1,.36,1),opacity .3s ease;
+            min-height:68px;
+            display:flex;align-items:flex-end;justify-content:center;
+            font-variant-numeric:tabular-nums;
+            contain:layout paint;
+            transform:translateZ(0);
+            backface-visibility:hidden;
+            transition:margin .36s cubic-bezier(.22,1,.36,1),min-height .36s cubic-bezier(.22,1,.36,1),opacity .24s ease;
         }
         .rest-date{
             font-size:12px;font-weight:300;
@@ -457,8 +468,9 @@
         }
         .rest-input{
             flex:1;border:none;outline:none;background:transparent;
-            font-size:14px;font-family:inherit;
+            font-size:16px;font-family:inherit;
             color:rgba(232,240,235,.75);font-weight:300;
+            min-width:0;
         }
         .rest-input::placeholder{color:rgba(232,240,235,.2)}
         .rest-send{
@@ -601,8 +613,9 @@
         }
         .life-input{
             flex:1;border:none;outline:none;background:transparent;
-            font-size:15px;font-family:inherit;
+            font-size:16px;font-family:inherit;
             color:rgba(232,240,235,.85);font-weight:300;
+            min-width:0;
         }
         .life-input::placeholder{color:rgba(232,240,235,.22)}
         .life-send{
@@ -644,7 +657,7 @@
         }
         body.keyboard-open .rest-input-wrap{padding-bottom:max(6px, env(safe-area-inset-bottom))}
         body.keyboard-open .life-top{padding-bottom:4px}
-        body.keyboard-open .rest-time{font-size:50px;letter-spacing:-2px;margin-top:12px}
+        body.keyboard-open .rest-time{font-size:40px;letter-spacing:-1px;margin-top:6px;min-height:42px;transition:none}
         body.keyboard-open .rest-date{margin-bottom:6px}
         body.keyboard-open .life-day-nav{margin-bottom:10px;opacity:.82}
         body.keyboard-open .rest-now,
@@ -654,7 +667,7 @@
         body.keyboard-open .life-msgs{padding-top:8px}
         body.keyboard-open .rest-input-row,
         body.keyboard-open .life-input-row{box-shadow:0 14px 36px rgba(0,0,0,.22)}
-        body.plan-focused:not(.keyboard-open) .rest-time{font-size:44px;letter-spacing:-1.2px;margin-top:8px;opacity:.9}
+        body.plan-focused:not(.keyboard-open) .rest-time{font-size:44px;letter-spacing:-1.2px;margin-top:4px;min-height:48px;opacity:.9}
         body.plan-focused:not(.keyboard-open) .rest-date{margin-bottom:4px}
         body.plan-focused:not(.keyboard-open) .life-day-nav{margin-bottom:8px;opacity:.78;transform:translateY(-2px)}
         body.plan-focused:not(.keyboard-open) .rest-now,
@@ -668,6 +681,54 @@
         body.plan-focused:not(.keyboard-open) .plan-task{font-size:15.5px;color:rgba(239,244,239,.92)}
         body.plan-focused:not(.keyboard-open) .plan-time{font-size:11.8px;color:rgba(239,244,239,.42)}
         body.plan-focused:not(.keyboard-open) .plan-dur{font-size:10.8px;color:rgba(239,244,239,.38)}
+
+        @media (max-width:640px), (hover:none) and (pointer:coarse){
+            :root{
+                --life-top-pad: max(20px, env(safe-area-inset-top));
+                --rest-bottom-space: 92px;
+                --chat-bottom-space: 92px;
+            }
+            .life-top{padding-left:20px;padding-right:20px}
+            .rest-time{font-size:56px;letter-spacing:-2px;min-height:58px;margin-top:12px}
+            .rest-date{margin-bottom:8px}
+            .life-day-nav{margin-bottom:10px}
+            .rest-now,.rest-next{padding-left:20px;padding-right:20px}
+            .rest-now-task{font-size:18px}
+            .rest-progress-wrap{width:calc(100% - 40px);margin-left:20px;margin-right:20px}
+            .rest-plan{padding-left:20px;padding-right:20px;max-height:min(36vh,280px)}
+            .rest-plan.plan-long{min-height:150px}
+            .plan-list{min-width:100%}
+            .plan-item{gap:10px;padding:9px 0 14px;min-height:50px}
+            .plan-item::before{left:25px}
+            .plan-time{width:36px}
+            .rest-input-wrap,.life-input-wrap{padding-left:14px;padding-right:14px}
+            .rest-input-row,.life-input-row{border-radius:21px;padding:10px 10px 10px 16px}
+            body.plan-focused .rest-time{transition:none}
+            body.plan-focused:not(.keyboard-open) .rest-time{font-size:38px;letter-spacing:-.8px;min-height:40px;margin-top:2px}
+            body.plan-focused:not(.keyboard-open) .rest-date{display:none}
+            body.plan-focused:not(.keyboard-open) .life-day-nav{margin-bottom:6px}
+            body.keyboard-open.life-rest-mode .life-top{padding-bottom:2px}
+            body.keyboard-open.life-rest-mode .rest-time{font-size:32px;letter-spacing:-.4px;min-height:34px;margin-top:2px}
+            body.keyboard-open.life-rest-mode .rest-date,
+            body.keyboard-open.life-rest-mode .life-day-nav,
+            body.keyboard-open.life-rest-mode .rest-progress-wrap,
+            body.keyboard-open.life-rest-mode .gen-plan-btn,
+            body.keyboard-open.life-rest-mode #all-day-events{display:none!important}
+            body.keyboard-open.life-rest-mode .rest-now{max-height:64px;margin:8px 0 4px;padding:0 20px;overflow:hidden}
+            body.keyboard-open.life-rest-mode .rest-now-label{margin-bottom:4px}
+            body.keyboard-open.life-rest-mode .rest-now-task{font-size:16px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+            body.keyboard-open.life-rest-mode .rest-next{display:none!important}
+            body.keyboard-open.life-rest-mode .rest-timer{margin-bottom:6px;padding:9px 12px}
+            body.keyboard-open.life-rest-mode .rest-plan{flex:1 1 auto;max-height:none;min-height:0;padding:4px 20px 8px;opacity:.9}
+            body.keyboard-open.life-rest-mode .rest-plan.plan-long{min-height:0}
+            body.keyboard-open.life-rest-mode .plan-item{padding:7px 0 10px;min-height:42px}
+            body.keyboard-open.life-rest-mode .plan-task{font-size:13px;line-height:1.25}
+            body.keyboard-open.life-rest-mode .plan-time{font-size:10px}
+            body.keyboard-open.life-rest-mode .plan-dur{font-size:9px;margin-top:2px}
+            body.keyboard-open.life-rest-mode .rest-input-wrap{padding-bottom:max(6px, env(safe-area-inset-bottom))}
+            body.keyboard-open.life-chat-mode .life-msgs{padding:8px 16px 6px}
+            body.keyboard-open.life-chat-mode .life-input-wrap{padding-bottom:max(6px, env(safe-area-inset-bottom))}
+        }
 
         ::-webkit-scrollbar{width:0;background:transparent}
     </style>
@@ -948,23 +1009,41 @@ document.getElementById('rest-input').addEventListener('keydown',e=>{if(e.key===
 /* mobile keyboard fit */
 const keyboardInputs=[document.getElementById('life-input'),document.getElementById('rest-input'),document.getElementById('reminder-input')].filter(Boolean);
 let maxViewportHeight=window.visualViewport?window.visualViewport.height:window.innerHeight;
+function isTouchPhone(){
+    return (navigator.maxTouchPoints||0)>0 || (window.matchMedia&&window.matchMedia('(hover: none) and (pointer: coarse)').matches);
+}
 function isTypingFocused(){
     return keyboardInputs.includes(document.activeElement);
 }
 function updateViewportFit(){
     const vv=window.visualViewport;
-    const height=vv?vv.height:window.innerHeight;
-    const diff=Math.max(0, window.innerHeight-height-(vv?vv.offsetTop:0));
+    const layoutHeight=window.innerHeight||document.documentElement.clientHeight;
+    const height=vv?vv.height:layoutHeight;
+    const diff=Math.max(0, layoutHeight-height-(vv?vv.offsetTop:0));
     if(!isTypingFocused()||height>maxViewportHeight)maxViewportHeight=height;
     const shrink=Math.max(0,maxViewportHeight-height);
-    const keyboardOpen=isTypingFocused()&&(diff>90||shrink>90||(!vv&&navigator.maxTouchPoints>0));
+    const keyboardOpen=isTypingFocused()&&(diff>90||shrink>90||(!vv&&isTouchPhone()));
     document.documentElement.style.setProperty('--app-height', `${height}px`);
+    document.documentElement.style.setProperty('--viewport-top', keyboardOpen&&vv?`${vv.offsetTop}px`:'0px');
     document.documentElement.style.setProperty('--keyboard-inset', '0px');
     document.body.classList.toggle('keyboard-open', keyboardOpen);
+    if(lifeOpen&&keyboardOpen)requestAnimationFrame(()=>window.scrollTo(0,0));
     if(keyboardOpen&&lifeViewMode==='chat'){
         const msgs=document.getElementById('life-msgs');
         requestAnimationFrame(()=>{if(msgs)msgs.scrollTop=msgs.scrollHeight;});
     }
+}
+function focusWithoutJump(el){
+    if(!el)return;
+    try{el.focus({preventScroll:true});}
+    catch(e){el.focus();}
+}
+function maybeFocusLifeInput(id, delay=100, force=false){
+    if(isTouchPhone()&&!force){
+        setTimeout(updateViewportFit,delay);
+        return;
+    }
+    setTimeout(()=>focusWithoutJump(document.getElementById(id)),delay);
 }
 if(window.visualViewport){
     window.visualViewport.addEventListener('resize',updateViewportFit);
@@ -1681,6 +1760,7 @@ function setSortMode(m){haptic(15);currentSortMode=m;document.getElementById('so
 
 function openMyLife(silent=false, mode='rest'){
     if(!silent)haptic(10);closeDrawer();lifeOpen=true;
+    document.body.classList.add('life-open');
     document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
     const lifeNav=document.getElementById('nav-life');
     if(lifeNav)lifeNav.classList.add('active');
@@ -1688,14 +1768,13 @@ function openMyLife(silent=false, mode='rest'){
     switchLifeView(mode);
     startLifeClock();
     updateRestPage();
-    if(mode==='chat')document.getElementById('life-input').focus();
-    else document.getElementById('rest-input').focus();
 }
 
 function closeMyLife(){
     lifeOpen=false;
     document.getElementById('life-overlay').classList.add('hidden');
-    document.body.classList.remove('plan-focused');
+    document.body.classList.remove('life-open','keyboard-open','plan-focused','life-rest-mode','life-chat-mode');
+    document.documentElement.style.setProperty('--viewport-top','0px');
     document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
     const nav=document.getElementById(`nav-${currentView}`);
     if(nav)nav.classList.add('active');
@@ -1704,8 +1783,11 @@ function closeMyLife(){
 }
 
 function switchLifeView(mode){
+    const wasTyping=isTypingFocused();
     lifeViewMode=mode;
     if(mode!=='rest')document.body.classList.remove('plan-focused');
+    document.body.classList.toggle('life-rest-mode',mode==='rest');
+    document.body.classList.toggle('life-chat-mode',mode==='chat');
     if(lifeOpen)setBottomNavActive(mode==='chat'?'chat':'myday');
     setTimeout(updateViewportFit,40);
     const restEl=document.getElementById('life-rest');
@@ -1724,7 +1806,7 @@ function switchLifeView(mode){
         backBtn.style.display='none';
         clearBtn.style.display='none';
         label.textContent='my life.';
-        setTimeout(()=>document.getElementById('rest-input').focus(),100);
+        maybeFocusLifeInput('rest-input',100,wasTyping);
     }else{
         chatEl.classList.remove('hidden');
         restEl.classList.add('hidden');
@@ -1734,7 +1816,7 @@ function switchLifeView(mode){
         backBtn.style.display='flex';
         clearBtn.style.display='flex';
         label.textContent='bamboo. ai';
-        setTimeout(()=>document.getElementById('life-input').focus(),200);
+        maybeFocusLifeInput('life-input',180,wasTyping);
     }
 }
 
