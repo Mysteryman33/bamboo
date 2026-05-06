@@ -43,7 +43,7 @@
             min-height: 100vh; overflow-x: hidden;
             overscroll-behavior: none;
         }
-        body.life-open{overflow:hidden}
+        body.life-open{overflow:hidden;background:var(--life-bg)}
 
         @keyframes fadeIn { from{opacity:0}to{opacity:1} }
         @keyframes slideUp { from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)} }
@@ -54,6 +54,9 @@
         @keyframes planSlide { from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)} }
         @keyframes timerPulse { 0%,100%{opacity:1}50%{opacity:0.7} }
         @keyframes softPlanLift { from{opacity:.92;transform:translateY(6px)}to{opacity:1;transform:translateY(0)} }
+        @keyframes keyboardTuck { from{opacity:.78;transform:translateY(12px) scale(1.035)}to{opacity:1;transform:translateY(0) scale(1)} }
+        @keyframes keyboardBarLift { from{opacity:.88;transform:translateY(22px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)} }
+        @keyframes keyboardFadeAway { from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-8px)} }
 
         /* ── HEADER ── */
         .header-wrap {
@@ -455,6 +458,12 @@
             padding:6px 20px calc(var(--rest-bottom-space) + var(--keyboard-inset));flex-shrink:0;position:relative;z-index:2;
             transition:padding .24s ease;
         }
+        .rest-input-wrap::after,
+        .life-input-wrap::after{
+            content:'';position:fixed;left:0;right:0;bottom:-96px;height:128px;
+            background:var(--life-bg);pointer-events:none;z-index:-1;opacity:0;
+            transition:opacity .18s ease;
+        }
         .rest-input-row{
             display:flex;align-items:center;gap:10px;
             background:rgba(255,255,255,.05);
@@ -655,18 +664,22 @@
             --rest-bottom-space: 12px;
             --chat-bottom-space: 12px;
         }
+        body.keyboard-open.life-open{background:var(--life-bg)}
+        body.keyboard-open .life-overlay{background:var(--life-bg)}
         body.keyboard-open .rest-input-wrap{padding-bottom:max(6px, env(safe-area-inset-bottom))}
         body.keyboard-open .life-top{padding-bottom:4px}
-        body.keyboard-open .rest-time{font-size:40px;letter-spacing:-1px;margin-top:6px;min-height:42px;transition:none}
+        body.keyboard-open .rest-time{font-size:40px;letter-spacing:-1px;margin-top:6px;min-height:42px;transition:margin .22s ease,min-height .22s ease,opacity .18s ease;animation:keyboardTuck .28s cubic-bezier(.22,1,.36,1) both}
         body.keyboard-open .rest-date{margin-bottom:6px}
         body.keyboard-open .life-day-nav{margin-bottom:10px;opacity:.82}
         body.keyboard-open .rest-now,
         body.keyboard-open .rest-next{margin-bottom:8px}
         body.keyboard-open .rest-progress-wrap{margin-bottom:10px}
-        body.keyboard-open .rest-emblem{display:none}
+        body.keyboard-open .rest-emblem{display:none;animation:keyboardFadeAway .16s ease both}
         body.keyboard-open .life-msgs{padding-top:8px}
         body.keyboard-open .rest-input-row,
-        body.keyboard-open .life-input-row{box-shadow:0 14px 36px rgba(0,0,0,.22)}
+        body.keyboard-open .life-input-row{box-shadow:0 14px 36px rgba(0,0,0,.22);animation:keyboardBarLift .32s cubic-bezier(.22,1,.36,1) both}
+        body.keyboard-open .rest-input-wrap::after,
+        body.keyboard-open .life-input-wrap::after{opacity:1}
         body.plan-focused:not(.keyboard-open) .rest-time{font-size:44px;letter-spacing:-1.2px;margin-top:4px;min-height:48px;opacity:.9}
         body.plan-focused:not(.keyboard-open) .rest-date{margin-bottom:4px}
         body.plan-focused:not(.keyboard-open) .life-day-nav{margin-bottom:8px;opacity:.78;transform:translateY(-2px)}
@@ -703,23 +716,23 @@
             .plan-time{width:36px}
             .rest-input-wrap,.life-input-wrap{padding-left:14px;padding-right:14px}
             .rest-input-row,.life-input-row{border-radius:21px;padding:10px 10px 10px 16px}
-            body.plan-focused .rest-time{transition:none}
+            body.plan-focused .rest-time{transition:margin .2s ease,min-height .2s ease,opacity .18s ease}
             body.plan-focused:not(.keyboard-open) .rest-time{font-size:38px;letter-spacing:-.8px;min-height:40px;margin-top:2px}
             body.plan-focused:not(.keyboard-open) .rest-date{display:none}
             body.plan-focused:not(.keyboard-open) .life-day-nav{margin-bottom:6px}
-            body.keyboard-open.life-rest-mode .life-top{padding-bottom:2px}
+            body.keyboard-open.life-rest-mode .life-top{padding-bottom:2px;animation:keyboardTuck .24s cubic-bezier(.22,1,.36,1) both}
             body.keyboard-open.life-rest-mode .rest-time{font-size:32px;letter-spacing:-.4px;min-height:34px;margin-top:2px}
             body.keyboard-open.life-rest-mode .rest-date,
             body.keyboard-open.life-rest-mode .life-day-nav,
             body.keyboard-open.life-rest-mode .rest-progress-wrap,
             body.keyboard-open.life-rest-mode .gen-plan-btn,
             body.keyboard-open.life-rest-mode #all-day-events{display:none!important}
-            body.keyboard-open.life-rest-mode .rest-now{max-height:64px;margin:8px 0 4px;padding:0 20px;overflow:hidden}
+            body.keyboard-open.life-rest-mode .rest-now{max-height:64px;margin:8px 0 4px;padding:0 20px;overflow:hidden;animation:keyboardTuck .3s cubic-bezier(.22,1,.36,1) both}
             body.keyboard-open.life-rest-mode .rest-now-label{margin-bottom:4px}
             body.keyboard-open.life-rest-mode .rest-now-task{font-size:16px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
             body.keyboard-open.life-rest-mode .rest-next{display:none!important}
             body.keyboard-open.life-rest-mode .rest-timer{margin-bottom:6px;padding:9px 12px}
-            body.keyboard-open.life-rest-mode .rest-plan{flex:1 1 auto;max-height:none;min-height:0;padding:4px 20px 8px;opacity:.9}
+            body.keyboard-open.life-rest-mode .rest-plan{flex:1 1 auto;max-height:none;min-height:0;padding:4px 20px 8px;opacity:.9;animation:keyboardTuck .34s cubic-bezier(.22,1,.36,1) both}
             body.keyboard-open.life-rest-mode .rest-plan.plan-long{min-height:0}
             body.keyboard-open.life-rest-mode .plan-item{padding:7px 0 10px;min-height:42px}
             body.keyboard-open.life-rest-mode .plan-task{font-size:13px;line-height:1.25}
